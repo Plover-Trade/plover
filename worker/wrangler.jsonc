@@ -1,0 +1,24 @@
+{
+  "name": "plover",
+  "main": "src/index.js",
+  "compatibility_date": "2026-01-01",
+  "workers_dev": true,
+  "routes": [
+    { "pattern": "ploveronsol.fun", "custom_domain": true },
+    { "pattern": "www.ploveronsol.fun", "custom_domain": true }
+  ],
+  "assets": { "directory": "../site", "binding": "ASSETS", "run_worker_first": ["/rpc", "/v1/*"] },
+  "d1_databases": [{ "binding": "DB", "database_name": "plover", "database_id": "18634432-d4cb-4b4f-816d-965817b07025" }],
+  "triggers": { "crons": ["*/5 * * * *"] },
+  "vars": {
+    // fee in basis points of the block's price, paid by the buyer in the same transaction; charged only once FEE_WALLET is set
+    "FEE_BPS": "50",
+    "FEE_WALLET": "HELnQfJ9mtWX4eoyxQaQF1q53yBAjjxAhGLNYFJdMMxi",
+    // $PLOVER mint after launch: a seller or buyer holding HOLDER_MIN (raw units) pays no fee
+    "TOKEN_ADDRESS": "",
+    "HOLDER_MIN": "",
+    "MAX_LOCK_DAYS": "365",
+    "OPEN_DAYS": "7"
+  }
+  // secret: SOL_RPC_URL (Helius mainnet URL with DAS)
+}

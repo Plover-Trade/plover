@@ -1,0 +1,13 @@
+{
+  "name": "plover",
+  "private": true,
+  "type": "module",
+  "description": "OTC blocks for Solana tokens: walk into the jaws, walk out whole.",
+  "scripts": {
+    "test": "node test/tx-test.mjs && node --disable-warning=ExperimentalWarning test/api-test.mjs",
+    "check": "node test/check.mjs",
+    "dev": "node --disable-warning=ExperimentalWarning worker/dev-server.mjs",
+    "deploy": "cd worker && wrangler deploy"
+  },
+  "devDependencies": { "@solana/web3.js": "1.98.0", "bs58": "6.0.0", "wrangler": "^4" }
+}

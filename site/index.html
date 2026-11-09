@@ -1,0 +1,532 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>PLOVER · OTC blocks on Solana</title>
+<meta name="description" content="Sell a block of a Solana token to one named buyer in one transaction. The pool never sees it, and PLOVER never holds anything.">
+<meta property="og:title" content="PLOVER · walk into the jaws, walk out whole">
+<meta property="og:description" content="OTC blocks for Solana tokens: the seller signs once for one buyer, the buyer signs later, one transaction swaps tokens for SOL away from the pool.">
+<meta property="og:image" content="https://ploveronsol.fun/og-image.png">
+<meta name="twitter:site" content="@ploveronsol">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800&family=Instrument+Sans:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+:root{--sand:#f1e8d4;--paper:#faf5ea;--ink:#1c1b16;--nile:#2c4a37;--deep:#1d3326;--reed:#3d6249;--orange:#e8893a;--mute:#6f6a5c;--line:#dccfb2;--good:#2f7a4a;--warn:#b5571c;--serif:"Fraunces",Georgia,serif;--sans:"Instrument Sans",system-ui,sans-serif;--mono:"JetBrains Mono",ui-monospace,monospace}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--sand);color:var(--ink);font:16px/1.55 var(--sans)}
+a{color:var(--nile);text-decoration:underline;text-underline-offset:3px}
+button,input,select{font:inherit;color:inherit}
+.wrap{max-width:1080px;margin:0 auto;padding:0 20px}
+.btn{display:inline-block;border:0;border-radius:6px;padding:11px 20px;font-weight:600;cursor:pointer;background:var(--orange);color:var(--ink);text-decoration:none;white-space:nowrap}
+.btn.line{background:transparent;border:1.5px solid currentColor}
+.btn.small{padding:7px 13px;font-size:14px}
+.btn:disabled{opacity:.5;cursor:default}
+.mute{color:var(--mute)}.mono{font-family:var(--mono)}
+
+/* top bar: links left, the bird in the middle, the wallet right */
+.bar{background:var(--deep);color:var(--paper)}
+.bar .wrap{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;height:62px}
+.bar nav{display:flex;gap:20px}
+.bar nav a{color:#cfd9cf;text-decoration:none;font-size:15px}.bar nav a.on{color:var(--paper);box-shadow:inset 0 -2px var(--orange)}
+.mark{display:flex;align-items:center;gap:10px;font:800 22px var(--serif);letter-spacing:.08em;color:var(--paper);text-decoration:none}
+.mark img{width:34px;height:34px;border-radius:50%}
+.bar .right{display:flex;justify-content:flex-end}
+.bar .btn.line{color:var(--paper)}
+.mnav{display:none;background:var(--deep);padding:0 20px 10px;gap:16px;overflow-x:auto}
+.mnav a{color:#cfd9cf;font-size:14px;text-decoration:none;white-space:nowrap}
+
+/* hero: the open mouth of the river */
+.mouth{background:var(--nile);color:var(--paper);overflow:hidden}
+.mouth .wrap{display:grid;grid-template-columns:1fr 1.1fr;gap:20px;align-items:center;padding-top:40px;padding-bottom:10px}
+.mouth h1{font:800 clamp(40px,6vw,70px)/1 var(--serif);margin:0 0 18px}
+.mouth h1 span{color:var(--orange)}
+.mouth p{color:#d8e2d6;font-size:18px;max-width:480px;margin:0 0 24px}
+.mouth svg{width:100%;height:auto;display:block}
+.teeth{height:22px;background:linear-gradient(135deg,var(--nile) 25%,transparent 25%) -11px 0/22px 22px,linear-gradient(225deg,var(--nile) 25%,transparent 25%) -11px 0/22px 22px;background-color:var(--sand)}
+.counts{display:flex;flex-wrap:wrap;justify-content:center;gap:10px 46px;padding:22px 0 0;text-align:center}
+.counts b{display:block;font:800 34px var(--serif);color:var(--nile)}
+.counts span{font-size:13px;color:var(--mute);letter-spacing:.06em;text-transform:uppercase}
+
+section{padding:46px 0}
+.head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap;margin-bottom:6px}
+h2{font:800 34px var(--serif);margin:0}
+.lede{color:var(--mute);max-width:640px;margin:4px 0 24px}
+
+/* blocks are cards, not rows */
+.cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:18px}
+.card{display:block;background:var(--paper);border:1px solid var(--line);border-radius:14px;padding:18px;text-decoration:none;color:var(--ink);position:relative}
+a.card:hover{border-color:var(--nile);box-shadow:0 6px 0 -2px var(--line)}
+.card .top{display:flex;align-items:center;gap:10px}
+.card .top img,.card .top i{width:38px;height:38px;border-radius:50%;background:var(--line);object-fit:cover;flex:none}
+.card .top b{font:800 20px var(--serif)}
+.card .top small{display:block;color:var(--mute);font-size:13px}
+.card .size{font:800 40px/1 var(--serif);margin:16px 0 2px;color:var(--nile)}
+.card .size small{font:500 14px var(--sans);color:var(--mute)}
+.card dl{display:grid;grid-template-columns:auto 1fr;gap:4px 14px;margin:14px 0 0;font-size:14px}
+.card dt{color:var(--mute)}.card dd{margin:0;font-family:var(--mono);text-align:right}
+.pill{position:absolute;top:16px;right:16px;font:500 12px var(--mono);padding:3px 9px;border-radius:99px;background:var(--sand);color:var(--mute)}
+.pill.signed{background:var(--orange);color:var(--ink)}.pill.done{background:var(--good);color:var(--paper)}
+.under{color:var(--good)}.over{color:var(--warn)}
+.none{grid-column:1/-1;padding:30px;border:1.5px dashed var(--line);border-radius:14px;color:var(--mute);text-align:center}
+
+/* blocks that walked out: a vertical river of dots */
+.river{list-style:none;margin:0;padding:0 0 0 26px;border-left:3px solid var(--reed)}
+.river li{position:relative;padding:0 0 22px 8px}
+.river li:before{content:"";position:absolute;left:-36px;top:5px;width:15px;height:15px;border-radius:50%;background:var(--orange);border:3px solid var(--sand)}
+.river b{font:800 19px var(--serif)}
+.river .mono{font-size:14px}
+
+/* how: steps that switch sides */
+.steps{display:grid;gap:0}
+.step{display:grid;grid-template-columns:120px 1fr;gap:22px;align-items:start;padding:22px 0;border-top:1px solid var(--line)}
+.step:nth-child(even){grid-template-columns:1fr 120px;text-align:right}
+.step:nth-child(even) .n{order:2}
+.step .n{font:800 84px/0.9 var(--serif);color:var(--orange)}
+.step h3{font:800 24px var(--serif);margin:4px 0 6px}
+.step p{margin:0;color:var(--mute);max-width:620px}
+.step:nth-child(even) p{margin-left:auto}
+.facts2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:30px}
+.facts2 div{background:var(--paper);border-left:4px solid var(--nile);padding:16px 18px;border-radius:0 10px 10px 0}
+.facts2 h3{font:800 19px var(--serif);margin:0 0 4px}
+.facts2 p{margin:0;color:var(--mute)}
+
+/* forms */
+.form{max-width:680px}
+label{display:block;font-weight:600;margin:20px 0 6px}
+label small{font-weight:400;color:var(--mute)}
+input,select{width:100%;background:var(--paper);border:1.5px solid var(--line);border-radius:8px;padding:11px 12px;outline:none}
+input:focus,select:focus{border-color:var(--nile)}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.chips button{background:var(--paper);border:1.5px solid var(--line);border-radius:6px;padding:5px 11px;font:500 13px var(--mono);cursor:pointer}
+.chips button:hover{border-color:var(--orange)}
+.hint{font-size:14px;color:var(--mute);margin-top:6px}
+.strip{position:sticky;bottom:0;margin-top:28px;background:var(--deep);color:var(--paper);border-radius:12px 12px 0 0;padding:14px 18px;display:flex;flex-wrap:wrap;gap:8px 26px;align-items:center}
+.strip div{font-size:13px;color:#b9c7b8}.strip div b{display:block;font:500 15px var(--mono);color:var(--paper)}
+.strip .btn{margin-left:auto}
+.msg{margin-top:14px;padding:12px 14px;border-radius:8px;background:var(--paper);border:1px solid var(--line);display:none}
+.msg.show{display:block}.msg.err{background:#f8e1d4;border-color:#e9b495}.msg.good{background:#dcefdf;border-color:#a8d3b1}
+
+/* one block */
+.blockhead{display:flex;align-items:center;gap:16px;background:var(--nile);color:var(--paper);border-radius:14px;padding:22px}
+.blockhead img,.blockhead i{width:62px;height:62px;border-radius:50%;background:var(--reed);object-fit:cover;flex:none}
+.blockhead h2{color:var(--paper)}
+.blockhead .big{margin-left:auto;text-align:right;font:800 34px/1 var(--serif)}
+.blockhead .big small{display:block;font:500 14px var(--sans);color:#cfd9cf}
+.tiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:12px;margin:18px 0}
+.tiles div{background:var(--paper);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+.tiles span{display:block;font-size:12px;color:var(--mute);text-transform:uppercase;letter-spacing:.06em}
+.tiles b{font:500 15px var(--mono);word-break:break-all}
+.act{background:var(--paper);border:1.5px solid var(--nile);border-radius:14px;padding:20px}
+.ask{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-top:1px solid var(--line)}
+.ask .mono{font-size:13px;word-break:break-all}
+.view{display:none}.view.on{display:block}
+footer{background:var(--deep);color:#b9c7b8;padding:24px 0 34px;font-size:14px;margin-top:30px}
+footer a{color:var(--paper)}
+footer .wrap{display:flex;flex-wrap:wrap;justify-content:space-between;gap:14px}
+
+@media (max-width:820px){
+  .bar .wrap{grid-template-columns:auto 1fr}.bar nav{display:none}.mnav{display:flex}
+  .mouth .wrap{grid-template-columns:1fr}
+  .step,.step:nth-child(even){grid-template-columns:64px 1fr;text-align:left}.step:nth-child(even) .n{order:0}.step:nth-child(even) p{margin-left:0}
+  .step .n{font-size:52px}
+  .facts2{grid-template-columns:1fr}
+  .blockhead{flex-wrap:wrap}.blockhead .big{margin-left:0;text-align:left;width:100%}
+}
+</style>
+<script type="module">import { Buffer } from 'https://cdn.jsdelivr.net/npm/buffer@6.0.3/+esm'; window.Buffer = window.Buffer || Buffer;</script>
+<script src="https://cdn.jsdelivr.net/npm/@solana/web3.js@1.98.0/lib/index.iife.min.js"></script>
+<script src="/plover.js"></script>
+</head>
+<body>
+<div class="bar"><div class="wrap">
+  <nav><a href="#/" data-nav="board">Blocks</a><a href="#/sell" data-nav="sell">Sell</a><a href="#/me" data-nav="me">Mine</a><a href="#/how" data-nav="how">How</a></nav>
+  <a class="mark" href="#/"><img src="/logo.png" alt="">PLOVER</a>
+  <div class="right"><button class="btn line small" id="connect">Connect</button></div>
+</div></div>
+<div class="mnav"><a href="#/">Blocks</a><a href="#/sell">Sell</a><a href="#/me">Mine</a><a href="#/how">How</a></div>
+
+<main>
+<div class="view" id="v-board">
+  <div class="mouth"><div class="wrap">
+    <div>
+      <h1>Walk into the jaws.<br><span>Walk out whole.</span></h1>
+      <p>OTC blocks for Solana tokens. A seller signs once for one buyer, the buyer signs later, and a single transaction swaps tokens for SOL. The pool never opens its mouth, and PLOVER never holds a thing.</p>
+      <a class="btn" href="#/sell">Sell a block</a>&nbsp; <a class="btn line" href="#/how" style="color:var(--paper)">How it works</a>
+    </div>
+    <svg viewBox="0 0 600 420" aria-hidden="true">
+      <path d="M600 30 V176 L150 196 C104 198 78 184 88 166 C140 118 330 70 600 30 Z" fill="#1d3326"/>
+      <g fill="#f3ecdc"><path d="M160 194 l12 26 l12 -27Z M215 192 l12 30 l12 -31Z M272 189 l12 28 l12 -29Z M330 187 l12 31 l12 -32Z M388 184 l12 27 l12 -28Z M446 182 l12 30 l12 -31Z M504 179 l12 26 l12 -27Z M560 177 l12 29 l12 -30Z"/></g>
+      <circle cx="500" cy="64" r="22" fill="#1d3326"/><ellipse cx="500" cy="60" rx="10" ry="12" fill="#e8893a"/><rect x="497" y="50" width="6" height="21" rx="3" fill="#1c1b16"/>
+      <path d="M600 410 V292 L170 276 C124 274 104 290 118 306 C210 360 420 390 600 410 Z" fill="#1d3326"/>
+      <g fill="#f3ecdc"><path d="M196 279 l12 -26 l12 27Z M256 281 l12 -30 l12 31Z M318 283 l12 -27 l12 28Z M380 286 l12 -31 l12 32Z M442 288 l12 -26 l12 27Z M504 290 l12 -30 l12 31Z M562 292 l12 -27 l12 28Z"/></g>
+      <!-- the plover, standing between the teeth -->
+      <g transform="translate(270 196)">
+        <path d="M4 72 l-4 14 M20 72 l4 14" stroke="#1c1b16" stroke-width="3" stroke-linecap="round"/>
+        <path d="M-6 44 C-6 24 14 16 36 22 C58 28 70 42 74 50 C60 70 30 76 8 70 C0 66 -6 56 -6 44 Z" fill="#f3ecdc"/>
+        <path d="M2 58 C18 72 44 72 64 58 C54 74 26 80 6 72 Z" fill="#e8893a"/>
+        <path d="M30 26 C46 28 62 38 74 50 L60 50 C50 42 40 36 28 34 Z" fill="#1c1b16"/>
+        <circle cx="0" cy="28" r="17" fill="#f3ecdc"/>
+        <path d="M-17 24 C-12 10 10 8 17 22 L17 16 C10 4 -12 6 -17 18 Z" fill="#1c1b16"/>
+        <path d="M-18 28 H17 V34 H-18 Z" fill="#1c1b16"/>
+        <path d="M-16 29 L-34 33 L-16 36 Z" fill="#1c1b16"/>
+        <circle cx="-6" cy="31" r="3" fill="#f3ecdc"/>
+      </g>
+    </svg>
+  </div></div>
+  <div class="teeth"></div>
+  <div class="wrap"><div class="counts"><div><b id="g-blocks">0</b><span>walked out</span></div><div><b id="g-sol">0</b><span>SOL off the pool</span></div><div><b id="g-tokens">0</b><span>tokens</span></div><div><b id="g-open">0</b><span>in the jaws now</span></div></div></div>
+  <section><div class="wrap">
+    <div class="head"><h2>In the jaws</h2><a href="#/sell">List yours</a></div>
+    <p class="lede">Blocks waiting for a buyer. Ask for one, and the seller can sign it for your wallet alone. A bot can't take the discount and dump it into the pool.</p>
+    <div class="cards" id="board"></div>
+  </div></section>
+  <section style="padding-top:0"><div class="wrap">
+    <div class="head"><h2>Walked out</h2></div>
+    <p class="lede">Blocks that changed hands, one transaction each, none of them through a pool.</p>
+    <ul class="river" id="tape"></ul>
+  </div></section>
+</div>
+
+<div class="view" id="v-how"><section><div class="wrap">
+  <h2>How a block walks out</h2>
+  <p class="lede">A whale who sells 3% of supply into the pool bites every holder at once. A block goes around the pool: the seller and one buyer swap directly, at a price they both agreed to.</p>
+  <div class="steps">
+    <div class="step"><div class="n">1</div><div><h3>The seller lists</h3><p>Token, size, price in SOL, and an optional lock. The wallet signs a message. Nothing moves.</p></div></div>
+    <div class="step"><div class="n">2</div><div><h3>A buyer asks</h3><p>Buyers ask with a signed message. The seller sees every wallet that asked, or names one up front.</p></div></div>
+    <div class="step"><div class="n">3</div><div><h3>The seller signs for one buyer</h3><p>The swap is signed against a durable nonce, not a recent blockhash, so the signature waits for days instead of a minute.</p></div></div>
+    <div class="step"><div class="n">4</div><div><h3>The buyer walks out</h3><p>The buyer adds a signature and sends. Tokens and SOL change hands in one transaction, or nothing happens at all.</p></div></div>
+  </div>
+  <div class="facts2">
+    <div><h3>Why there is always a named buyer</h3><p>A discounted block open to anyone is a free meal for a bot: it would take it and sell into the pool in the same second. Each block here is signed for exactly one wallet.</p></div>
+    <div><h3>A better price for holding</h3><p>The seller can ask the buyer to hold. The tokens then land in a Jupiter Lock escrow in the buyer's name until a date, and nobody can cancel it, the seller included.</p></div>
+    <div><h3>What PLOVER never touches</h3><p>No escrow of ours, no program of ours. The swap is plain transfers, the lock is Jupiter Lock, and your browser builds every transaction.</p></div>
+    <div><h3>Backing out</h3><p>Until the buyer sends it, the seller can close the nonce. The signed block can then never land, and the nonce rent comes back.</p></div>
+  </div>
+</div></section></div>
+
+<div class="view" id="v-sell"><section><div class="wrap">
+  <h2>Sell a block</h2>
+  <p class="lede">Your tokens stay in your wallet until a buyer takes the block. If you sell them somewhere else first, the block just fails.</p>
+  <div class="form">
+    <label for="f-mint">Token address</label>
+    <input id="f-mint" placeholder="mint address" autocomplete="off" spellcheck="false">
+    <div class="hint" id="f-tokinfo"></div>
+    <label for="f-amount">Block size <small>in tokens</small></label>
+    <input id="f-amount" inputmode="decimal" placeholder="0">
+    <div class="chips" id="f-pcts"></div>
+    <div class="hint" id="f-amountinfo"></div>
+    <label for="f-price">Price for the whole block <small>in SOL</small></label>
+    <input id="f-price" inputmode="decimal" placeholder="0">
+    <div class="chips" id="f-discounts"></div>
+    <div class="hint" id="f-priceinfo"></div>
+    <label for="f-lock">The buyer holds</label>
+    <select id="f-lock"><option value="0">no lock</option><option value="7">7 days in Jupiter Lock</option><option value="30">30 days in Jupiter Lock</option><option value="90">90 days in Jupiter Lock</option><option value="180">180 days in Jupiter Lock</option><option value="365">365 days in Jupiter Lock</option></select>
+    <label for="f-buyer">Buyer wallet <small>optional: leave empty to take asks from the board</small></label>
+    <input id="f-buyer" placeholder="wallet address" autocomplete="off" spellcheck="false">
+    <label for="f-note">Note <small>optional</small></label>
+    <input id="f-note" maxlength="140" placeholder="e.g. team allocation, fair price for a 30-day hold">
+    <p class="hint">Listing is free. Signing for a buyer opens a nonce account (about 0.00145 SOL, back to you when it closes). A lock adds about 0.003 SOL of escrow rent.</p>
+    <div class="msg" id="f-msg"></div>
+  </div>
+  <div class="strip" id="f-summary"></div>
+</div></section></div>
+
+<div class="view" id="v-block"><section><div class="wrap" id="block"></div></section></div>
+<div class="view" id="v-me"><section><div class="wrap" id="me"></div></section></div>
+</main>
+
+<footer><div class="wrap"><span>PLOVER · walk into the jaws, walk out whole</span><span><a href="#/how">How it works</a> · <a href="https://x.com/ploveronsol" target="_blank" rel="noopener">X</a> · <a href="https://github.com/Plover-Trade/plover" target="_blank" rel="noopener">GitHub</a> · <a href="/v1">API</a></span></div></footer>
+
+<script>
+(function () {
+  const W = window.solanaWeb3, R = window.Plover;
+  const { PublicKey, Keypair, TransactionMessage, VersionedTransaction } = W;
+  const $ = (s) => document.querySelector(s);
+  const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]);
+  const short = (a) => (a ? `${a.slice(0, 4)}…${a.slice(-4)}` : '');
+  const now = () => Math.floor(Date.now() / 1000);
+  const b64 = (bytes) => { let s = ''; for (const x of bytes) s += String.fromCharCode(x); return btoa(s); };
+  const unb64 = (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0));
+  let me = null, wallet = null, config = {};
+
+  // ---------- numbers ----------
+  const units = (raw, dec) => { const s = String(raw).padStart(dec + 1, '0'); const i = s.slice(0, s.length - dec), f = s.slice(s.length - dec).replace(/0+$/, ''); return Number(i + (f ? '.' + f : '')); };
+  const toRaw = (text, dec) => { const m = String(text).trim().replace(/,/g, '').match(/^(\d*)(?:\.(\d*))?$/); if (!m || (!m[1] && !m[2])) return null; const f = (m[2] || '').slice(0, dec).padEnd(dec, '0'); const v = BigInt((m[1] || '0') + f); return v > 0n ? v : null; };
+  const fmt = (n, d = 2) => (n >= 1e9 ? (n / 1e9).toFixed(d) + 'B' : n >= 1e6 ? (n / 1e6).toFixed(d) + 'M' : n >= 1e4 ? (n / 1e3).toFixed(1) + 'K' : n.toLocaleString('en-US', { maximumFractionDigits: 4 }));
+  const sol = (lamports) => { const n = Number(lamports) / 1e9; return n >= 100 ? n.toFixed(1) : n >= 1 ? n.toFixed(3) : n.toPrecision(3); };
+  const pct = (b) => (b.supply ? (Number(b.amount) / Number(b.supply)) * 100 : null);
+  const vsPool = (lamports, market) => (market ? (Number(lamports) / Number(market) - 1) * 100 : null);
+  const vsText = (v) => (v == null ? '<span class="mute">no pool price</span>' : v <= 0 ? `<span class="under">${Math.abs(v).toFixed(1)}% under pool</span>` : `<span class="over">${v.toFixed(1)}% over pool</span>`);
+  const date = (t) => new Date(t * 1000).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' });
+  const ago = (t) => { const s = now() - t; return s < 3600 ? `${Math.max(1, Math.round(s / 60))}m ago` : s < 86400 ? `${Math.round(s / 3600)}h ago` : `${Math.round(s / 86400)}d ago`; };
+  const icon = (b) => (b.image ? `<img src="${esc(b.image)}" alt="" loading="lazy" onerror="this.replaceWith(document.createElement('i'))">` : '<i></i>');
+  const ticker = (b) => (b.symbol ? '$' + esc(b.symbol) : short(b.mint));
+
+  // ---------- network ----------
+  async function api(path, body) {
+    const r = await fetch(path, body ? { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) } : {});
+    const j = await r.json().catch(() => ({}));
+    if (!r.ok) throw new Error(j.error || `request failed (${r.status})`);
+    return j;
+  }
+  async function rpc(method, params) {
+    const r = await fetch('/rpc', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ jsonrpc: '2.0', id: 1, method, params }) });
+    const j = await r.json();
+    if (j.error) throw new Error(j.error.message || 'RPC error');
+    return j.result;
+  }
+  async function send(tx) {
+    const sig = await rpc('sendTransaction', [b64(tx.serialize()), { encoding: 'base64', preflightCommitment: 'confirmed' }]);
+    for (let i = 0; i < 45; i++) {
+      await new Promise((r) => setTimeout(r, 1500));
+      const st = (await rpc('getSignatureStatuses', [[sig]])).value[0];
+      if (st?.err) throw new Error('the transaction failed on chain: ' + JSON.stringify(st.err));
+      if (st && ['confirmed', 'finalized'].includes(st.confirmationStatus)) return sig;
+    }
+    throw new Error(`not confirmed yet, check ${sig} on Solscan`);
+  }
+  const fresh = async () => (await rpc('getLatestBlockhash', [{ commitment: 'confirmed' }])).value.blockhash;
+
+  // ---------- wallet ----------
+  const provider = () => window.phantom?.solana || window.solflare || window.backpack || window.solana || null;
+  const shown = () => { $('#connect').textContent = short(me); };
+  async function connect() {
+    const p = provider();
+    if (!p) { window.open('https://phantom.app', '_blank'); throw new Error('no Solana wallet found in this browser'); }
+    const r = await p.connect();
+    wallet = p; me = (r?.publicKey || p.publicKey).toString(); shown();
+    return me;
+  }
+  const need = async () => me || connect();
+  async function signLines(text) {
+    await need();
+    const r = await wallet.signMessage(new TextEncoder().encode(text), 'utf8');
+    return b64(r.signature || r);
+  }
+  $('#connect').onclick = () => connect().then(route).catch((e) => alert(e.message));
+  try { const p = provider(); if (p?.isConnected && p.publicKey) { wallet = p; me = p.publicKey.toString(); shown(); } else p?.connect?.({ onlyIfTrusted: true }).then((r) => { wallet = p; me = r.publicKey.toString(); shown(); route(); }).catch(() => {}); } catch {}
+
+  // the exact lines the worker checks
+  const lines = {
+    list: (f) => `PLOVER · list a block\nmint: ${f.mint}\namount: ${f.amount}\nprice: ${f.lamports} lamports\nlock until: ${f.lock_until || 0}\nbuyer: ${f.buyer || 'any'}\ntime: ${f.time}`,
+    request: (f) => `PLOVER · ask for block ${f.id}\ntime: ${f.time}`,
+    cancel: (f) => `PLOVER · take down block ${f.id}\ntime: ${f.time}`,
+  };
+  const say = (el, text, kind = '') => { el.className = `msg show ${kind}`; el.innerHTML = text; };
+
+  // ---------- board ----------
+  function cardOf(b) {
+    const p = pct(b), v = vsPool(b.lamports, b.market_lamports);
+    const pill = b.status === 'signed' ? '<span class="pill signed">signed for a buyer</span>' : b.status === 'done' ? '<span class="pill done">walked out</span>' : ['cancelled', 'expired'].includes(b.status) ? `<span class="pill">${b.status}</span>` : b.buyer ? '<span class="pill">named buyer</span>' : `<span class="pill">${b.asks || 0} asked</span>`;
+    return `<a class="card" href="#/b/${b.id}">${pill}
+      <div class="top">${icon(b)}<div><b>${ticker(b)}</b><small>${esc(b.name || short(b.mint))}</small></div></div>
+      <div class="size">${p != null ? p.toFixed(p < 1 ? 2 : 1) + '%' : fmt(units(b.amount, b.decimals))} <small>${p != null ? 'of supply' : 'tokens'}</small></div>
+      <dl><dt>Price</dt><dd>${sol(b.lamports)} SOL</dd><dt>Vs pool</dt><dd>${vsText(v)}</dd><dt>Lock</dt><dd>${b.lock_until ? 'until ' + date(b.lock_until) : 'none'}</dd><dt>Seller</dt><dd>${short(b.seller)} · ${ago(b.created)}</dd></dl></a>`;
+  }
+  async function board() {
+    const [{ blocks }, { tape, totals }] = await Promise.all([api('/v1/blocks'), api('/v1/tape')]);
+    $('#board').innerHTML = blocks.length ? blocks.map(cardOf).join('') : '<div class="none">Nothing in the jaws right now. <a href="#/sell">List the first block</a>.</div>';
+    $('#tape').innerHTML = tape.length ? tape.map((b) => `<li><b>${ticker(b)}</b> · ${pct(b)?.toFixed(2) ?? '?'}% of supply for ${sol(b.lamports)} SOL<div class="mono mute">${b.lock_until ? 'held until ' + date(b.lock_until) : 'no lock'} · ${ago(b.done_at)} · <a href="#/b/${b.id}">open</a></div></li>`).join('') : '<li class="mute">Nobody has walked out yet.</li>';
+    $('#g-blocks').textContent = totals.blocks; $('#g-sol').textContent = sol(totals.lamports || 0); $('#g-tokens').textContent = totals.tokens; $('#g-open').textContent = blocks.length;
+  }
+
+  // ---------- sell ----------
+  let tok = null, held = null;
+  const amountRaw = () => (tok ? toRaw($('#f-amount').value, tok.decimals) : null);
+  const priceRaw = () => toRaw($('#f-price').value, 9);
+  async function loadToken() {
+    const mint = $('#f-mint').value.trim();
+    tok = null; held = null; $('#f-pcts').innerHTML = ''; $('#f-discounts').innerHTML = '';
+    if (!mint) { $('#f-tokinfo').textContent = ''; return summary(); }
+    $('#f-tokinfo').textContent = 'reading the token…';
+    try {
+      tok = await api(`/v1/token/${mint}`);
+      if (tok.blocked.length) { $('#f-tokinfo').innerHTML = `<span class="over">Blocks are off for this token: its transfers can be taxed or stopped (${esc(tok.blocked.join(', '))}).</span>`; tok = null; return summary(); }
+      if (me) {
+        const got = await rpc('getTokenAccountsByOwner', [me, { mint }, { encoding: 'jsonParsed' }]);
+        held = got.value.reduce((t, a) => t + BigInt(a.account.data.parsed.info.tokenAmount.amount), 0n);
+      }
+      $('#f-tokinfo').innerHTML = `<b>${ticker(tok)}</b> ${esc(tok.name || '')} · ${tok.price_sol ? `pool price ${tok.price_sol.toPrecision(3)} SOL` : 'no SOL pool found'}${held != null ? ` · you hold ${fmt(units(held, tok.decimals))}` : ' · connect to see your balance'}${tok.freeze ? ' · <span class="over">freeze authority is on</span>' : ''}`;
+      $('#f-pcts').innerHTML = [0.5, 1, 2, 3, 5].map((p) => `<button type="button" data-p="${p}">${p}% supply</button>`).join('') + (held ? '<button type="button" data-p="all">all I hold</button>' : '');
+      if (tok.price_sol) $('#f-discounts').innerHTML = [5, 8, 12, 20].map((d) => `<button type="button" data-d="${d}">${d}% under pool</button>`).join('');
+    } catch (e) { $('#f-tokinfo').innerHTML = `<span class="over">${esc(e.message)}</span>`; }
+    summary();
+  }
+  function market() { const a = amountRaw(); return a && tok?.price_sol ? Math.round(units(a, tok.decimals) * tok.price_sol * 1e9) : null; }
+  function summary() {
+    const a = amountRaw(), l = priceRaw(), m = market(), days = Number($('#f-lock').value), buyer = $('#f-buyer').value.trim();
+    $('#f-amountinfo').innerHTML = a && tok ? `${((Number(a) / Number(tok.supply)) * 100).toFixed(3)}% of supply${held != null && a > held ? ' · <span class="over">more than you hold</span>' : ''}` : '';
+    $('#f-priceinfo').innerHTML = l && m ? vsText(vsPool(l, m)) + ` · selling into the pool would bring about ${sol(m)} SOL before slippage` : '';
+    const fee = config.fee_bps ? `${config.fee_bps / 100}%${config.token ? ', 0 for holders' : ''}` : 'none';
+    $('#f-summary').innerHTML = [
+      ['Token', tok ? ticker(tok) : '—'], ['Block', a && tok ? fmt(units(a, tok.decimals)) : '—'], ['Price', l ? sol(l) + ' SOL' : '—'],
+      ['Holds until', days ? date(now() + days * 86400) : 'no lock'], ['Buyer', buyer ? short(buyer) : 'from asks'], ['Fee, paid by buyer', fee],
+    ].map(([k, v]) => `<div>${k}<b>${v}</b></div>`).join('') + '<button class="btn" id="f-go">Sign and list</button>';
+    $('#f-go').onclick = list;
+  }
+  $('#f-mint').addEventListener('change', loadToken);
+  $('#f-mint').addEventListener('paste', () => setTimeout(loadToken, 0));
+  ['#f-amount', '#f-price', '#f-lock', '#f-buyer'].forEach((s) => $(s).addEventListener('input', summary));
+  $('#f-pcts').onclick = (e) => {
+    const p = e.target.dataset.p; if (!p || !tok) return;
+    const raw = p === 'all' ? held : (BigInt(tok.supply) * BigInt(Math.round(Number(p) * 100))) / 10000n;
+    $('#f-amount').value = String(units(raw, tok.decimals)); summary();
+  };
+  $('#f-discounts').onclick = (e) => { const d = e.target.dataset.d, m = market(); if (!d || !m) return; $('#f-price').value = ((m * (1 - d / 100)) / 1e9).toFixed(4); summary(); };
+  async function list() {
+    const msg = $('#f-msg'), btn = $('#f-go');
+    try {
+      await need();
+      if (!tok) throw new Error('enter a token address first');
+      const amount = amountRaw(), lamports = priceRaw(), buyer = $('#f-buyer').value.trim();
+      if (!amount) throw new Error('enter the block size');
+      if (!lamports) throw new Error('enter the price in SOL');
+      if (held != null && amount > held) throw new Error('that is more than you hold');
+      if (buyer) { try { new PublicKey(buyer); } catch { throw new Error('the buyer address looks wrong'); } }
+      const days = Number($('#f-lock').value);
+      const f = { mint: tok.mint, amount: String(amount), lamports: String(lamports), lock_until: days ? now() + days * 86400 : 0, buyer: buyer || null, time: now() };
+      btn.disabled = true; say(msg, 'Sign the message in your wallet. It moves nothing.');
+      const signature = await signLines(lines.list(f));
+      const { id } = await api('/v1/blocks', { ...f, seller: me, note: $('#f-note').value, signature });
+      say(msg, 'Listed.', 'good');
+      location.hash = `#/b/${id}`;
+    } catch (e) { say(msg, esc(e.message), 'err'); } finally { btn.disabled = false; }
+  }
+
+  // ---------- one block ----------
+  // the seller signs for one buyer: a nonce account first (if this block has none yet), then the block itself
+  async function signFor(b, buyer, el) {
+    await need();
+    if (me !== b.seller) throw new Error('connect the seller wallet');
+    const { fee, fee_wallet } = await api(`/v1/block/${b.id}/fee?buyer=${buyer}`);
+    const key = `plover-nonce-${b.id}`;
+    let nonce = null;
+    try { nonce = localStorage.getItem(key); } catch {}
+    let info = nonce && (await rpc('getAccountInfo', [nonce, { encoding: 'base64' }])).value;
+    if (!info) {
+      const kp = Keypair.generate();
+      say(el, 'Step 1 of 2: open a nonce account so your signature can wait for the buyer (about 0.00145 SOL, it comes back when the nonce closes).');
+      const tx = new VersionedTransaction(new TransactionMessage({ payerKey: new PublicKey(me), recentBlockhash: await fresh(), instructions: [...R.budget(20000, 50000), ...R.nonceOpen({ seller: me, nonce: kp.publicKey })] }).compileToV0Message());
+      tx.sign([kp]);
+      await send(await wallet.signTransaction(tx));
+      nonce = kp.publicKey.toBase58();
+      try { localStorage.setItem(key, nonce); } catch {}
+      for (let i = 0; i < 10 && !info; i++) { info = (await rpc('getAccountInfo', [nonce, { encoding: 'base64' }])).value; if (!info) await new Promise((r) => setTimeout(r, 1000)); }
+    }
+    const n = R.readNonce(unb64(info.data[0]));
+    if (!n || n.authority.toBase58() !== me) throw new Error('the nonce account is not yours');
+    say(el, 'Step 2 of 2: sign the block for ' + short(buyer) + '. Nothing moves until the buyer sends it.');
+    const tag = Keypair.generate(), base = Keypair.generate();
+    const { ixs } = R.block({ seller: me, buyer, mint: b.mint, program: b.program, decimals: b.decimals, amount: BigInt(b.amount), lamports: BigInt(b.lamports), fee: BigInt(fee), feeWallet: fee_wallet, nonce, id: b.id, lockUntil: b.lock_until, signedAt: now(), base: base.publicKey, tag: tag.publicKey });
+    const tx = new VersionedTransaction(new TransactionMessage({ payerKey: new PublicKey(buyer), recentBlockhash: n.value, instructions: ixs }).compileToV0Message());
+    tx.sign([b.lock_until ? base : tag]);
+    const signed = await wallet.signTransaction(tx);
+    const r = await api(`/v1/block/${b.id}/sign`, { buyer, nonce, tx: b64(signed.serialize()) });
+    say(el, `Signed for ${short(buyer)}. Send them this page and they can take it whenever they are ready.${r.simulation !== 'ok' ? ` <br><span class="over">Dry run: ${esc(r.simulation)} (often the buyer does not have the SOL yet)</span>` : ''}`, 'good');
+  }
+
+  // the buyer takes it: check what the seller signed, dry run it, sign, send
+  async function take(b, el) {
+    await need();
+    if (me !== b.buyer) throw new Error('this block is signed for ' + short(b.buyer));
+    const tx = VersionedTransaction.deserialize(unb64(b.tx));
+    if (tx.message.staticAccountKeys[0].toBase58() !== me) throw new Error('this block is not set up for your wallet');
+    say(el, 'Dry run…');
+    const sim = await rpc('simulateTransaction', [b.tx, { encoding: 'base64', sigVerify: false, replaceRecentBlockhash: false }]);
+    if (sim.value.err) {
+      const logs = (sim.value.logs || []).join(' ');
+      throw new Error(/insufficient lamports/.test(logs) ? 'your wallet does not have enough SOL for this block' : /insufficient funds/.test(logs) ? 'the seller no longer holds the tokens' : 'the dry run failed: ' + JSON.stringify(sim.value.err));
+    }
+    say(el, 'Sign in your wallet. Tokens and SOL change hands in this one transaction.');
+    const sig = await send(await wallet.signTransaction(tx));
+    await api(`/v1/block/${b.id}/done`, { signature: sig }).catch(() => {});
+    say(el, `You walked out. <a href="https://solscan.io/tx/${sig}" target="_blank" rel="noopener">See it on Solscan</a>.`, 'good');
+  }
+
+  async function cancel(b, el) {
+    await need();
+    if (me !== b.seller) throw new Error('connect the seller wallet');
+    if (b.status === 'open') {
+      const time = now();
+      await api(`/v1/block/${b.id}/cancel`, { time, signature: await signLines(lines.cancel({ id: b.id, time })) });
+    } else {
+      // closing the nonce makes the signed block impossible to land, and returns the rent
+      const info = (await rpc('getAccountInfo', [b.nonce, { encoding: 'base64' }])).value;
+      if (info) {
+        say(el, 'Close the nonce: after this the signed block can never land.');
+        const tx = new VersionedTransaction(new TransactionMessage({ payerKey: new PublicKey(me), recentBlockhash: await fresh(), instructions: [...R.budget(20000, 50000), ...R.nonceClose({ seller: me, nonce: b.nonce, lamports: info.lamports })] }).compileToV0Message());
+        await send(await wallet.signTransaction(tx));
+      }
+      await api(`/v1/block/${b.id}/cancel`, {});
+    }
+    say(el, 'The block is down.', 'good');
+  }
+
+  async function block(id) {
+    const el = $('#block');
+    el.innerHTML = '<p class="mute">Loading…</p>';
+    const { block: b, requests } = await api(`/v1/block/${id}`);
+    const live = await api(`/v1/token/${b.mint}`).catch(() => null);
+    const liveMarket = live?.price_sol ? Math.round(units(b.amount, b.decimals) * live.price_sol * 1e9) : null;
+    const p = pct(b);
+    const mine = me === b.seller, forMe = me && b.buyer === me, asked = me && requests.some((r) => r.buyer === me);
+    const stateText = { open: 'open, waiting for buyers', signed: `signed for ${short(b.buyer)}`, done: 'walked out', cancelled: 'taken down', expired: 'expired' }[b.status];
+    let actions = '';
+    if (b.status === 'open' && !mine) actions = b.buyer && b.buyer !== me ? '<p class="mute">This block is for one named buyer.</p>' : asked ? '<p class="mute">You asked for this block. Once the seller signs it for you, a Take button shows up here.</p>' : '<label for="a-note" style="margin-top:0">A word for the seller <small>optional</small></label><input id="a-note" maxlength="140"><div style="margin-top:12px"><button class="btn" id="a-ask">Ask for this block</button></div>';
+    if (b.status === 'signed' && forMe) actions = `<button class="btn" id="a-take">Take the block · pay ${sol(BigInt(b.lamports) + BigInt(b.fee || 0))} SOL</button>`;
+    if (b.status === 'signed' && !forMe && !mine) actions = '<p class="mute">Signed for another wallet.</p>';
+    if (b.status === 'signed' && mine) actions = `<p class="mute">Signed for ${short(b.buyer)}. Send them this page.</p>`;
+    if (b.status === 'done') actions = `<a class="btn line" href="https://solscan.io/tx/${b.done_sig}" target="_blank" rel="noopener">See it on Solscan</a>`;
+    if (mine && ['open', 'signed'].includes(b.status)) actions += `<div style="margin-top:12px"><button class="btn line small" id="a-cancel">${b.status === 'signed' ? 'Close the nonce and take it down' : 'Take it down'}</button></div>`;
+    const asks = mine && b.status === 'open'
+      ? `<h3 style="font:800 21px var(--serif);margin:24px 0 6px">Who asked</h3>${requests.length ? requests.map((r) => `<div class="ask"><div><span class="mono">${esc(r.buyer)}</span>${r.note ? `<div class="mute" style="font-size:14px">${esc(r.note)}</div>` : ''}<div class="mute" style="font-size:13px">${ago(r.created)} · <a href="https://solscan.io/account/${esc(r.buyer)}" target="_blank" rel="noopener">wallet</a></div></div><button class="btn small" data-sign="${esc(r.buyer)}">Sign for this buyer</button></div>`).join('') : '<p class="mute">Nobody yet. Share this page.</p>'}`
+      : '';
+    const tile = (k, v) => `<div><span>${k}</span><b>${v}</b></div>`;
+    el.innerHTML = `<div class="blockhead">${icon(b)}<div><h2>${ticker(b)} block</h2><div style="color:#cfd9cf">${esc(b.name || '')} · <span class="mono">${short(b.mint)}</span></div></div><div class="big">${sol(b.lamports)} SOL<small>${p != null ? p.toFixed(3) + '% of supply' : fmt(units(b.amount, b.decimals)) + ' tokens'}</small></div></div>
+      ${b.note ? `<p style="font:600 20px var(--serif);margin:18px 0 0">“${esc(b.note)}”</p>` : ''}
+      <div class="tiles">
+        ${tile('State', stateText)}${tile('Tokens', fmt(units(b.amount, b.decimals)) + ' ' + ticker(b))}${tile('Vs pool now', vsText(vsPool(b.lamports, liveMarket)))}${tile('Vs pool at listing', vsText(vsPool(b.lamports, b.market_lamports)))}
+        ${tile('Lock', b.lock_until ? 'Jupiter Lock until ' + date(b.lock_until) : 'none')}${tile('Seller', `<a href="https://solscan.io/account/${b.seller}" target="_blank" rel="noopener">${short(b.seller)}</a>`)}${tile('Buyer', b.buyer ? `<a href="https://solscan.io/account/${b.buyer}" target="_blank" rel="noopener">${short(b.buyer)}</a>` : 'not chosen')}
+        ${b.fee && b.fee !== '0' ? tile('PLOVER fee', sol(b.fee) + ' SOL') : ''}${tile('Listed', ago(b.created))}${b.status === 'open' ? tile('Open until', date(b.expires)) : ''}
+      </div>
+      <div class="act">${actions || '<p class="mute">Nothing to do here.</p>'}<div class="msg" id="a-msg"></div>${asks}</div>`;
+    const msg = $('#a-msg');
+    const run = (fn) => async (e) => { const btn = e.currentTarget; btn.disabled = true; try { await fn(btn); setTimeout(() => block(id), 1500); } catch (err) { say(msg, esc(err.message || String(err)), 'err'); btn.disabled = false; } };
+    $('#a-ask') && ($('#a-ask').onclick = run(async () => { await need(); const time = now(); await api(`/v1/block/${id}/request`, { buyer: me, time, note: $('#a-note').value, signature: await signLines(lines.request({ id, time })) }); say(msg, 'Asked. The seller can see your wallet now.', 'good'); }));
+    $('#a-take') && ($('#a-take').onclick = run(() => take(b, msg)));
+    $('#a-cancel') && ($('#a-cancel').onclick = run(() => cancel(b, msg)));
+    el.querySelectorAll('[data-sign]').forEach((x) => (x.onclick = run(() => signFor(b, x.dataset.sign, msg))));
+  }
+
+  async function mine() {
+    const el = $('#me');
+    if (!me) { el.innerHTML = '<h2>Mine</h2><p class="lede">Connect a wallet to see the blocks you sell and the ones you asked for.</p><button class="btn" id="m-c">Connect wallet</button>'; $('#m-c').onclick = () => connect().then(mine).catch((e) => alert(e.message)); return; }
+    const { selling, buying } = await api(`/v1/wallet/${me}`);
+    const grid = (xs, empty) => `<div class="cards">${xs.length ? xs.map(cardOf).join('') : `<div class="none">${empty}</div>`}</div>`;
+    el.innerHTML = `<h2>Mine</h2><p class="lede mono">${me}</p><h3 style="font:800 24px var(--serif);margin:22px 0 12px">Selling</h3>${grid(selling, 'No blocks listed yet. <a href="#/sell">Sell one</a>.')}<h3 style="font:800 24px var(--serif);margin:34px 0 12px">Buying</h3>${grid(buying, 'You have not asked for a block yet.')}`;
+  }
+
+  // ---------- routes ----------
+  async function route() {
+    const h = location.hash.replace(/^#/, '') || '/';
+    const m = h.match(/^\/b\/(b[a-z0-9]{8})$/);
+    const view = m ? 'block' : { '/': 'board', '/sell': 'sell', '/me': 'me', '/how': 'how' }[h] || 'board';
+    document.querySelectorAll('.view').forEach((v) => v.classList.toggle('on', v.id === `v-${view}`));
+    document.querySelectorAll('.bar nav a').forEach((a) => a.classList.toggle('on', a.dataset.nav === view));
+    try {
+      if (view === 'board') await board();
+      if (view === 'sell') { if (me && tok) loadToken(); else summary(); }
+      if (view === 'block') await block(m[1]);
+      if (view === 'me') await mine();
+    } catch (e) { const el = view === 'block' ? $('#block') : view === 'me' ? $('#me') : $('#board'); el.innerHTML = `<p class="over">${esc(e.message)}</p>`; }
+  }
+  window.addEventListener('hashchange', () => { route(); scrollTo(0, 0); });
+  api('/v1/config').then((c) => { config = c; summary(); }).catch(() => {});
+  route();
+})();
+</script>
+</body>
+</html>
